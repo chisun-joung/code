@@ -17,6 +17,10 @@ def random_batchref(name=""):
     return f"batch-{name}-{random_suffix()}"
 
 
+def random_orderid(name=""):
+    return f"order-{name}-{random_suffix()}"
+
+
 @pytest.mark.usefixtures("restart_api")
 def test_api_returns_allocation(add_stock):
     sku, othersku = random_sku(), random_sku("other")
@@ -30,8 +34,61 @@ def test_api_returns_allocation(add_stock):
             (otherbatch, othersku, 100, None),
         ]
     )
+    print(earlybatch, laterbatch, otherbatch)
     data = {"orderid": random_batchref(), "sku": sku, "qty": 3}
     url = config.get_api_url()
+    print(url)
     r = requests.post(f"{url}/allocate", json=data)
     assert r.status_code == 201
     assert r.json()["batchref"] == earlybatch
+
+
+@pytest.mark.usefixtures("restart_api")
+def test_allocations_are_persisted(add_stock):
+    sku = random_sku()
+    batch1, batch2 = random_batchref(1), random_batchref(2)
+    order1, order2 = random_batchref(1), random_batchref(2)
+    add_stock(
+        [
+            (batch1, sku, 10, "2011-01-01"),
+            (batch2, sku, 10, "2011-01-02"),
+        ]
+    )
+    line1 = {"orderid": order1, "sku": sku, "qty": 10}
+    line2 = {"orderid": order2, "sku": sku, "qty": 10}
+    url = config.get_api_url()
+    r = requests.post(f"{url}/allocate", json=line1)
+    assert r.status_code == 201
+    r = requests.post(f"{url}/allocate", json=line2)
+    assert r.status_code == 201
+    # r = requests.get(f"{url}/allocations/{order1}")
+    # assert r.status_code == 200
+    # assert r.json() == [{"sku": sku, "batchref": batch1}]
+    # r = requests.get(f"{url}/allocations/{order2}")
+    # assert r.status_code == 200
+    # assert r.json() == [{"sku": sku, "batchref": batch2}]
+
+
+@pytest.mark.usefixtures("restart_api")
+def test_400_message_for_out_of_stock(add_stock):
+    sku, small_batch, large_order = random_sku(), random_batchref(), random_batchref()
+    add_stock(
+        [
+            (small_batch, sku, 10, "2011-01-01"),
+        ]
+    )
+    data = {"orderid": large_order, "sku": sku, "qty": 20}
+    url = config.get_api_url()
+    r = requests.post(f"{url}/allocate", json=data)
+    assert r.status_code == 400
+    assert r.json()["message"] == f"Out of stock for sku {sku}"
+
+
+@pytest.mark.usefixtures("restart_api")
+def test_400_message_for_invalid_sku():
+    unknown_sku, orderid = random_sku(), random_orderid()
+    data = {"orderid": orderid, "sku": unknown_sku, "qty": 20}
+    url = config.get_api_url()
+    r = requests.post(f"{url}/allocate", json=data)
+    assert r.status_code == 400
+    assert r.json()["message"] == f"Invalid sku {unknown_sku}"
