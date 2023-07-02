@@ -109,9 +109,9 @@ def test_concurrent_updates_to_version_are_not_allowed(postgres_session_factory)
         "SELECT version_number FROM products WHERE sku=:sku",
         dict(sku=sku),
     )
-    assert version == 3
-    # [exception] = exceptions
-    # assert "could not serialize access due to concurrent update" in str(exception)
+    assert version == 2
+    [exception] = exceptions
+    assert "could not serialize access due to concurrent update" in str(exception)
 
     orders = session.execute(
         "SELECT orderid FROM allocations"
@@ -120,6 +120,6 @@ def test_concurrent_updates_to_version_are_not_allowed(postgres_session_factory)
         " WHERE order_lines.sku=:sku",
         dict(sku=sku),
     )
-    assert orders.rowcount == 2
+    assert orders.rowcount == 1
     with unit_of_work.SqlAlchemyUnitOfWork() as uow:
-        uow.session.execute("select 2")
+        uow.session.execute("select 1")

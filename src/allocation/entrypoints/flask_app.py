@@ -1,16 +1,14 @@
 from datetime import datetime
 from flask import Flask, request
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from allocation import config
+
 from allocation.domain import model
-from allocation.adapters import orm, repository
+from allocation.adapters import orm
 from allocation.service_layer import services, unit_of_work
 
-orm.start_mappers()
-get_session = sessionmaker(bind=create_engine(config.get_postgres_uri()))
 app = Flask(__name__)
+orm.start_mappers()
 
 
 @app.route("/add_batch", methods=["POST"])
@@ -37,7 +35,7 @@ def allocate_endpoint():
             request.json["qty"],
             unit_of_work.SqlAlchemyUnitOfWork(),
         )
-    except (model.OutOfStock, services.InvalidSku) as e:
+    except services.InvalidSku as e:
         return {"message": str(e)}, 400
 
     return {"batchref": batchref}, 201
