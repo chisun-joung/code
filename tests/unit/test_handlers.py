@@ -45,6 +45,18 @@ class TestAddBatch:
         assert uow.products.get("CRUNCHY-ARMCHAIR") is not None
         assert uow.committed
 
+    def test_for_existing_product(self):
+        uow = FakeUnitOfWork()
+        messagebus.handle(commands.CreateBatch("b1", "GARISH-RUG", 100, None), uow)
+        messagebus.handle(commands.CreateBatch("b2", "GARISH-RUG", 99, None), uow)
+        assert "b2" in [b.reference for b in uow.products.get("GARISH-RUG").batches]
+
+
+@pytest.fixture(autouse=True)
+def fake_redis_publish():
+    with mock.patch("allocation.adapters.redis_eventpublisher.publish"):
+        yield
+
 
 class TestAllocate:
     def test_returns_allocation(self):
