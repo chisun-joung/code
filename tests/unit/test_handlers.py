@@ -1,8 +1,9 @@
+# pylint: disable=no-self-use
 from datetime import date
 from unittest import mock
 import pytest
 from allocation.adapters import repository
-from allocation.domain import commands
+from allocation.domain import commands, events
 from allocation.service_layer import handlers, messagebus, unit_of_work
 
 
@@ -59,15 +60,14 @@ def fake_redis_publish():
 
 
 class TestAllocate:
-    def test_returns_allocation(self):
+    def test_allocates(self):
         uow = FakeUnitOfWork()
         messagebus.handle(
             commands.CreateBatch("batch1", "COMPLICATED-LAMP", 100, None), uow
         )
-        results = messagebus.handle(
-            commands.Allocate("o1", "COMPLICATED-LAMP", 10), uow
-        )
-        assert results.pop(0) == "batch1"
+        messagebus.handle(commands.Allocate("o1", "COMPLICATED-LAMP", 10), uow)
+        [batch] = uow.products.get("COMPLICATED-LAMP").batches
+        assert batch.available_quantity == 90
 
     def test_errors_for_invalid_sku(self):
         uow = FakeUnitOfWork()
