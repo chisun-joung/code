@@ -39,8 +39,3 @@ class Deallocated(Event):
 @dataclass
 class OutOfStock(Event):
     sku: str
-
-
-@dataclass
-class OutOfStock(Event):
-    sku: str
